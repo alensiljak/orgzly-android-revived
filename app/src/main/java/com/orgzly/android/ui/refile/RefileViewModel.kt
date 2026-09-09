@@ -36,7 +36,7 @@ class RefileViewModel(
     // breadcrumb header pointing at a different location than the currently displayed list.
     private val navigationExecutor = Executors.newSingleThreadExecutor()
 
-    val data = MutableLiveData<Pair<Stack<Item>, List<Item>>>()
+    val data = MutableLiveData<Pair<List<Item>, List<Item>>>()
 
     val refiledEvent: SingleLiveEvent<UseCaseResult> = SingleLiveEvent()
 
@@ -81,7 +81,7 @@ class RefileViewModel(
 
                     saveLastLocation(payload)
 
-                    data.postValue(Pair(breadcrumbs, items))
+                    data.postValue(Pair(breadcrumbs.toList(), items))
                 }
             }
 
@@ -95,7 +95,7 @@ class RefileViewModel(
 
                     saveLastLocation(payload)
 
-                    data.postValue(Pair(breadcrumbs, items))
+                    data.postValue(Pair(breadcrumbs.toList(), items))
                 }
             }
 
@@ -112,7 +112,7 @@ class RefileViewModel(
 
                         saveLastLocation(payload)
 
-                        data.postValue(Pair(breadcrumbs, items))
+                        data.postValue(Pair(breadcrumbs.toList(), items))
                     }
                 }
             }
@@ -261,11 +261,16 @@ class RefileViewModel(
     fun onBreadcrumbClick(item: Item) {
         if (BuildConfig.LOG_DEBUG) LogUtils.d(TAG, item)
 
-        while (breadcrumbs.pop() != item) {
-            // Pop up to and including clicked item
-        }
+        // Popping must be serialized with open()'s push/clear calls (both mutate the shared
+        // breadcrumbs stack), otherwise this can race with an in-flight navigation task and
+        // leave the breadcrumb header out of sync with the displayed list.
+        navigationExecutor.execute {
+            while (breadcrumbs.pop() != item) {
+                // Pop up to and including clicked item
+            }
 
-        open(item)
+            open(item)
+        }
     }
 
     fun goTo(noteId: Long) {
